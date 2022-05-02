@@ -278,8 +278,8 @@ Template.prototype.getDataForParam = function(key, paraName) {
 	
 	var data = this.paramData[para][key];
 	// Data might actually be an object with key "en"
-	if ( data && data.en && !Array.isArray(data) ) {
-		return data.en;
+	if ( data && data.zh && !Array.isArray(data) ) {
+		return data.zh;
 	}
 	return data;
 };
@@ -341,8 +341,12 @@ Template.prototype.setParamDataAndSuggestions = function() {
 			// No TemplateData, so use defaults (guesses)
 				self.notemplatedata = true;
 				self.templatedataApiError = !result;
-				self.paramData = config.defaultParameterData;
+				if (new RegExp("WikiProject ", "i").test(prefixedText) ||
+					prefixedText.includes("专题") ||
+					prefixedText.includes("專題"))
+					self.paramData = config.defaultParameterData;
 			} else {
+				// TODO: review for https://zh.wikipedia.org/w/index.php?title=Special:%E6%90%9C%E7%B4%A2&search=rater-data.js&profile=advanced&fulltext=1&ns10=1
 				self.paramData = result.pages[id].params;
 			}
         
@@ -355,10 +359,10 @@ Template.prototype.setParamDataAndSuggestions = function() {
 					});
 				}
 				// Extract allowed values array from description
-				if ( paraData.description && /\[.*'.+?'.*?\]/.test(paraData.description.en) ) {
+				if ( paraData.description && /\[.*'.+?'.*?\]/.test(paraData.description.zh) ) {
 					try {
 						var allowedVals = JSON.parse(
-							paraData.description.en
+							paraData.description.zh
 								.replace(/^.*\[/,"[")
 								.replace(/"/g, "\\\"")
 								.replace(/'/g, "\"")
@@ -368,7 +372,7 @@ Template.prototype.setParamDataAndSuggestions = function() {
 						self.paramData[paraName].allowedValues = allowedVals;
 					} catch(e) {
 						console.warn("[Rater] Could not parse allowed values in description:\n  "+
-					paraData.description.en + "\n Check TemplateData for parameter |" + paraName +
+					paraData.description.zh + "\n Check TemplateData for parameter |" + paraName +
 					"= in " + self.getTitle().getPrefixedText());
 					}
 				}
@@ -435,7 +439,7 @@ Template.prototype.addMissingParams = function() {
 	var thisTemplate = this;
 
 	// Autofill listas parameter for WP:BIO
-	var isBiographyBanner = this.getTitle().getMainText() === "WikiProject Biography" ||
+	var isBiographyBanner = this.getTitle().getMainText() === "WikiProject Biography" || // TODO: check it
 		(this.redirectTarget && this.redirectTarget.getMainText() === "WikiProject Biography");
 
 	if (isBiographyBanner && !this.getParam("listas")) {
@@ -484,7 +488,7 @@ Template.prototype.setClassesAndImportances = function() {
 		return parsed.resolve();
 	}
 
-	var mainText = this.getTitle().getMainText();
+	var mainText = this.getTitle().getMainText(); // page name without NS prefix
 
 	// Some projects have hardcoded values, to avoid standard classes or to prevent API issues (timeout and/or node count exceeded)
 	const redirectTargetOrMainText = this.redirectTarget ? this.redirectTarget.getMainText() : mainText;
@@ -520,19 +524,21 @@ Template.prototype.setClassesAndImportances = function() {
 	
 	return API.get({
 		action: "parse",
-		title: "Talk:Sandbox",
+		title: "Talk:沙盒", // note: it works even if the page doesn't exist
 		text: wikitextToParse,
 		prop: "categorieshtml"
 	})
-		.then((result) => {
-			var catsHtml = result.parse.categorieshtml["*"];
+		.then((/* result */) => {
+			/* var catsHtml = result.parse.categorieshtml["*"];
 			var extendedClasses = config.bannerDefaults.extendedClasses.filter(function(cl) {
-				return catsHtml.indexOf(cl+"-Class") !== -1;
-			});
+				return catsHtml.indexOf(cl+"-Class") !== -1; // i18n
+			}); */
+			var extendedClasses = config.bannerDefaults.extendedClasses; // TODO
 			this.classes = [...config.bannerDefaults.classes, ...extendedClasses];
-			this.importances = config.bannerDefaults.extendedImportances.filter(function(imp) {
-				return catsHtml.indexOf(imp+"-importance") !== -1;
-			});
+			/* this.importances = config.bannerDefaults.extendedImportances.filter(function(imp) {
+				return catsHtml.indexOf(imp+"-importance") !== -1; // i18n
+			}); */
+			this.importances = config.bannerDefaults.extendedImportances; // TODO
 			cache.write(mainText+"-ratings",
 				{
 					classes: this.classes,

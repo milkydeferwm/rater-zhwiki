@@ -40,6 +40,19 @@ var setupRater = function(clickEvent) {
 		return wikitext;
 	});
 
+	var curAllTemplateAlias = null;
+	var getAllTemplateAlias = function(JSON) {
+		if (curAllTemplateAlias != null) return curAllTemplateAlias; // cache
+		var o = [];
+		o = o.concat(Object.keys(JSON));
+		
+		for (let key of Object.keys(JSON)) {
+			var alias = JSON[key];
+			o.push(alias);
+		}
+		curAllTemplateAlias = o;
+		return curAllTemplateAlias;
+	};
 	// Parse talk page for banners (task 3)
 	var parseTalkPromise = loadTalkPromise.then(wikitext => parseTemplates(wikitext, true)) // Get all templates
 		.then(templates => templates.filter(template => template.getTitle() !== null)) // Filter out invalid templates (e.g. parser functions)
@@ -56,28 +69,25 @@ var setupRater = function(clickEvent) {
 							: template.getTitle().getMainText();
 						return allBanners.withRatings.includes(mainText) || 
 						allBanners.withoutRatings.includes(mainText) ||
-						allBanners.wrappers.includes(mainText) ||
-						allBanners.notWPBM.includes(mainText) ||
-						allBanners.inactive.includes(mainText) ||
-						allBanners.wir.includes(mainText);
+						getAllTemplateAlias(allBanners.projectsJSON).includes(mainText);
 					},
 					// Set additional properties if needed
 					template => {
 						var mainText = template.redirectTarget
 							? template.redirectTarget.getMainText()
 							: template.getTitle().getMainText();
-						if (allBanners.wrappers.includes(mainText)) {
-							template.redirectTarget = mw.Title.newFromText("Template:Subst:" + mainText);
-						}
 						if (
-							allBanners.withoutRatings.includes(mainText) ||
-							allBanners.wir.includes(mainText)
+							allBanners.withoutRatings.includes(mainText)
 						) {
 							template.withoutRatings = true;
 						}
-						if ( allBanners.inactive.includes(mainText) ) {
-							template.inactiveProject = true;
+						
+						if (!((new RegExp("WikiProject ", "i").test(mainText)) ||
+							mainText.includes("专题") || mainText.includes("專題")))
+						{
+							template.nonBanner = true;
 						}
+	
 						return template;
 					}
 				);
@@ -166,7 +176,7 @@ var setupRater = function(clickEvent) {
 			}
 			return API.getORES(latestRevId)
 				.then(function(result) {
-					var data = result.enwiki.scores[latestRevId].articlequality;
+					var data = result.zhwiki.scores[latestRevId].articlequality;
 					if ( data.error ) {
 						return $.Deferred().reject(data.error.type, data.error.message);
 					}

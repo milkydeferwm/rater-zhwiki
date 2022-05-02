@@ -7,6 +7,36 @@ var cacheBanners = function(banners) {
 	cache.write("banners", banners, 2, 60);
 };
 
+// The code snippet from https://zh.wikipedia.org/wiki/User:Chiefwei/rater/rater.js
+var raterData = {};
+var dataurl = "";
+function getRaterData(kind) {
+	if (kind === "default") {
+		dataurl = mw.config.get("wgScript") + "?action=raw&ctype=application/json&maxage=86400&title=User:Chiefwei/rater/" + kind + ".js";
+	} else {
+		dataurl = mw.config.get("wgScript") + "?action=raw&ctype=application/json&maxage=86400&title=User:Sz-iwbot/rater/" + kind + ".json";
+	}
+	if (raterData[kind] === void(null)) {
+		try {
+			$.ajax({
+				"url": dataurl,
+				"dataType": "json",
+				"async": false,
+				"success": function (data) {
+					raterData[kind] = data;
+				},
+				"error": function (xhr, message) {
+					mw.log.error(new Error(message));
+				}
+			});
+		}  catch (e) {
+			alert("获取评级工具“" + kind + "”数据错误：" + e.message + "。评级工具可能无法正常工作。");
+			raterData[kind] = null;
+		}
+	}
+	return raterData[kind];
+}
+
 /**
  * Gets banners/options from the Api
  * 
@@ -25,43 +55,37 @@ var getListOfBannersFromApi = function() {
 		cmlimit: "500"
 	};
 
-	var categories = [
+	var categories = [ // i18n configure
 		{
-			title: "Category:WikiProject banners with quality assessment",
+			title: "Category:含质量评级的专题横幅",
 			abbreviation: "withRatings",
 			banners: [],
 			processed: $.Deferred()
 		},
 		{
-			title: "Category:WikiProject banners without quality assessment",
+			title: "Category:不含质量评级的专题横幅",
 			abbreviation: "withoutRatings",
 			banners: [],
 			processed: $.Deferred()
-		},
+		}/*,
 		{
-			title: "Category:WikiProject banner wrapper templates",
+			title: "Category:WikiProject banner wrapper templates", // TODO: missing and review is needed
 			abbreviation: "wrappers",
 			banners: [],
 			processed: $.Deferred()
 		},
 		{
-			title: "Category:WikiProject banner templates not based on WPBannerMeta",
+			title: "Category:WikiProject banner templates not based on WPBannerMeta", // TODO: same as above
 			abbreviation: "notWPBM",
 			banners: [],
 			processed: $.Deferred()
 		},
 		{
-			title: "Category:Inactive WikiProject banners",
+			title: "Category:Inactive WikiProject banners", // TODO: same as above
 			abbreviation: "inactive",
 			banners: [],
 			processed: $.Deferred()
-		},
-		{
-			title: "Category:Wrapper templates for WikiProject Women in Red",
-			abbreviation: "wir",
-			banners: [],
-			processed: $.Deferred()
-		}
+		}*/
 	];
 
 	var processQuery = function(result, catIndex) {
@@ -110,7 +134,9 @@ var getListOfBannersFromApi = function() {
 		categories.forEach(catObject => {
 			banners[catObject.abbreviation] = catObject.banners;
 		});
-		
+
+		banners["projectsJSON"] = getRaterData("projects");
+
 		finishedPromise.resolve(banners);
 	});
 	
@@ -123,7 +149,7 @@ var getListOfBannersFromApi = function() {
  * @returns {Promise} Resolved with banners object
  */
 var getBannersFromCache = function() {
-	var cachedBanners = cache.read("banners");
+	var cachedBanners = cache.read("banners"); //TODO
 	if (
 		!cachedBanners ||
 		!cachedBanners.value ||
@@ -145,10 +171,10 @@ var getBannersFromCache = function() {
 var getBannerNames = () => getBannersFromCache()
 	.then( banners => {
 		// Ensure all keys exist
-		if (!banners.withRatings || !banners.withoutRatings || !banners.wrappers || !banners.notWPBM || !banners.inactive || !banners.wir) {
+		if (!banners.withRatings || !banners.withoutRatings || !banners.projectsJSON /* || !banners.wrappers || !banners.notWPBM || !banners.inactive || !banners.wir*/ ) {
 			getListOfBannersFromApi().then(cacheBanners);
 			return $.extend(
-				{ withRatings: [], withoutRatings: [], wrappers: [], notWPBM: [], inactive: [], wir: [] },
+				{ withRatings: [], withoutRatings: [], projectsJSON : [] /* , wrappers: [], notWPBM: [], inactive: [], wir: []*/ },
 				banners
 			);
 		}
